@@ -94,7 +94,7 @@
                 </section>
 
                 <section>
-                    <h2>Symfony2 and Dependency Injection</h2>
+                    <h1>symfony/dependency-injection</h1>
                 </section>
 
                 <section>
@@ -153,6 +153,7 @@ src/Acme
                 </section>
 
                 <section>
+                    <h2>Creating services</h2>
 <pre><code class="hljs php">
 // Acme/DemoBundle/Command/RegisterUserCommandHandler.php
 class RegisterUserCommandHandler implements Handler {
@@ -179,16 +180,16 @@ class RegisterUserCommandHandler implements Handler {
                 </section>
 
                 <section>
-                    <h2>services.yml</h2>
+                    <h2>Creating services</h2>
 <pre><code class="hljs bash">
 # Acme/DemoBundle/Resources/config/services.yml
 services:
     acme_demo.handler.register_user:
         class: Acme\DemoBundle\Command\RegisterUserCommandHandler
         arguments:
-            - "@acme_demo.repo.user" // One of our own services
-            - "@event_dispatcher"    // Symfony2 service
-            - "images/mrT.jpg"       // Literal string
+            - "@acme_demo.repo.user" # One of our own services
+            - "@event_dispatcher"    # Symfony2 service
+            - "images/mrT.jpg"       # Literal string
 </code></pre>
                     <aside class="notes">
                         <ul>
@@ -199,7 +200,7 @@ services:
                 </section>
 
                 <section>
-                    <h2>AcmeDemoExtension.php</h2>
+                    <h2>Creating services</h2>
 <pre><code class="hljs php">
 // Acme/DemoBundle/DependencyInjection/AcmeDemoExtension.php
 class AcmeDemoExtension extends Extension
@@ -224,6 +225,10 @@ class AcmeDemoExtension extends Extension
                             <li>If you're not gonna use configuration, get rid of the first two lines</li>
                         </ul>
                     </aside>
+                </section>
+
+                <section>
+                    <img data-src="working.gif" />
                 </section>
 
                 <section>
@@ -252,7 +257,7 @@ services:
                 </section>
 
                 <section>
-                    <h2>Using configuration</h2>
+                    <h2>Introducing Config component</h2>
 <pre><code class="hljs bash">
 #app/config/config.yml
 doctrine:
@@ -268,7 +273,7 @@ doctrine:
                 </section>
 
                 <section>
-                    <h2>Adding our own config</h2>
+                    <h2>Using Config component</h2>
 <pre><code class="hljs bash">
 #app/config/config.yml
 acme_demo:
@@ -277,7 +282,7 @@ acme_demo:
                 </section>
 
                 <section>
-                    <h2>Using the Configuration component</h2>
+                    <h2>Using Config component</h2>
 <pre><code class="hljs php">
 // Acme/DemoBundle/DependencyInjection/Configuration.php
 class Configuration implements ConfigurationInterface
@@ -304,7 +309,7 @@ class Configuration implements ConfigurationInterface
                 </section>
 
                 <section>
-                    <h2>Reading the Configuration class</h2>
+                    <h2>Using Config component</h2>
 <pre><code class="hljs php">
 // Acme/DemoBundle/DependencyInjection/AcmeDemoExtension.php
 public function load(array $configs, ContainerBuilder $container)
@@ -323,10 +328,15 @@ public function load(array $configs, ContainerBuilder $container)
                 </section>
 
                 <section>
+                    <img data-src="mrT.gif" />
+                </section>
+
+                <section>
                     <h1>Tagging Services</h1>
                 </section>
 
                 <section>
+                    <h2>Tagged services</h2>
 <pre><code class="hljs bash">
 # Acme/DemoBundle/Resources/config/services.yml
 services:
@@ -397,6 +407,7 @@ class CommandHandlerPass implements CompilerPassInterface
                 </section>
 
                 <section>
+                    <h2>Finishing off the CommandBus</h2>
 <pre><code class="hljs php">
 // Acme/DemoBundle/Command/CommandBus.php
 class CommandBus {
@@ -418,15 +429,86 @@ class CommandBus {
                 </section>
 
                 <section>
+                    <h2>Default Symfony2 Controllers</h2>
+<pre><code class="hljs php">
+//Acme/DemoBundle/Controller/DefaultController.php
+class DefaultController extends Controller {
+    public function registerAction(Request $request)
+    {
+        $em   = $this->getDoctrine()->getManager();
+        $repo = $em->getRepository('AcmeDemoBundle:User');
+        $user = $repo->findUser();
+
+        $command = RegisterUserCommand::fromRequest($request);
+        $this->get('command_bus')->handle($command);
+
+        return $this->render(
+            'AcmeDemoBundle:Default:index.html.twig',
+            ['name' => $user->getName()]
+        );
+    }
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <img data-src="disgust.gif" />
+                </section>
+
+                <section>
+                    <h2>Controllers as Services</h2>
+<pre><code class="hljs bash">
+#Acme/DemoBundle/Resources/config/services.yml
+services:
+    acme_demo.controller.default:
+        class: Acme\DemoBundle\Controller\DefaultController
+        arguments:
+            - "@acme_demo.command_bus"
+            - "@doctrine.orm.default_entity_manager"
+
+#Acme/DemoBundle/Resources/config/routing.yml
+acme_demo_default_index:
+    path:     /
+    defaults: { _controller: AcmeDemoBundle:Default:index }
+    -->
+    defaults: { _controller: acme_demo.controller.default:indexAction }
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Controllers as Services</h2>
+<pre><code class="hljs php">
+//Acme/DemoBundle/Controller/DefaultController.php
+class DefaultController {
+    public function registerAction(Request $request)
+    {
+        $repo = $this->em->getRepository('AcmeDemoBundle:User');
+        $user = $repo->findUser();
+
+        $command = RegisterUserCommand::fromRequest($request);
+        $this->commandBus->handle($command);
+
+        return $this->render(
+            'AcmeDemoBundle:Default:index.html.twig',
+            ['name' => $user->getName()]
+        );
+    }
+}
+</code></pre>
+                </section>
+
+                <section>
                     <h2>Aliasing</h2>
-<pre><code class="hljs">
+<pre><code class="hljs bash">
 # Acme/SomeBundle/Resources/config/services.yml
 services:
     em: doctrine.orm.default_entity_manager
 
-    acme_some.my_service
-        class: ...
-        arguments: ["@em"]
+    acme_demo.controller.default:
+        class: Acme\DemoBundle\Controller\DefaultController
+        arguments:
+        - "@acme_demo.command_bus"
+        - "@em"
 </code></pre>
                 </section>
 
@@ -439,41 +521,41 @@ services:
         class: Acme\DemoBundle\Repository\UserRepository
         factory_service: em # see what I did here
         factory_method: getRepository
-        arguments: ["Acme\DemoBundle\Entity\User"]
+        arguments: ["AcmeDemoBundle:User"]
 </code></pre>
                 </section>
 
                 <section>
-                    <h2>Controllers as Services</h2>
-<pre><code class="hljs php">
-class DefaultController extends Controller
-{
-    public function indexAction($name)
-    {
-        $this->get('this_service')->doStuff();
-        $this->get('that_service')->doEvenMore();
-        return $this->render(
-            'AcmeDemoBundle:Default:index.html.twig',
-            ['name' => $name]
-        );
-    }
-}
-</code></pre>
-                </section>
-
-                <section>
-                    <h2>Controllers as Services</h2>
+                    <h2>Doctrine Repositories as Services</h2>
 <pre><code class="hljs bash">
 #Acme/DemoBundle/Resources/config/services.yml
 services:
     acme_demo.controller.default:
         class: Acme\DemoBundle\Controller\DefaultController
-        arguments: ["@acme_demo.command_bus"]
+        arguments:
+        - "@acme_demo.command_bus"
+        - "@acme_demo.repo.user"
+</code></pre>
+                </section>
 
-#Acme/DemoBundle/Resources/config/routing.yml
-acme_demo_default_index:
-    path:     /
-    defaults: { _controller: acme_demo.controller.default:indexAction}
+                <section>
+                    <h2>Doctrine Repositories as Services</h2>
+<pre><code class="hljs php">
+//Acme/DemoBundle/Controller/DefaultController.php
+class DefaultController {
+    public function registerAction(Request $request)
+    {
+        $user = $this->repo->findUser();
+
+        $command = RegisterUserCommand::fromRequest($request);
+        $this->commandBus->handle($command);
+
+        return $this->render(
+            'AcmeDemoBundle:Default:index.html.twig',
+            ['name' => $user->getName()]
+        );
+    }
+}
 </code></pre>
                 </section>
 
@@ -491,6 +573,35 @@ public function load(array $configs, ContainerBuilder $container)
     $loader->load('services.yml');
     $loader->load('controllers.yml');
     $loader->load('repositories.yml');
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Tagging Controllers</h2>
+<pre><code class="hljs php">
+//Acme/DemoBundle/Controller/DefaultController.php
+class DefaultController {
+    public function indexAction(Request $request)
+    {
+        $response = new Response();
+        $response->setLastModified($this->redis->getLastModified());
+        if ($response->isNotModified($request) {
+            return $response;
+        }
+
+        $user = $this->repo->someCostlyLookup();
+
+        $response = $this->render(
+            'AcmeDemoBundle:Default:index.html.twig',
+            ['name' => $user->getName()]
+        );
+
+        $response->setLastModified($user->getLastModified());
+        $this->redis->setLastModified($user->getLastModified());
+
+        return $response;
+    }
 }
 </code></pre>
                 </section>
@@ -515,8 +626,11 @@ services:
 services:
     acme_demo.listener.cacheable:
         class: Acme\DemoBundle\EventListener\CacheableListener
+        arguments: ["@redis"]
         tags:
-            - { name: kernel.event_listener, event: kernel.request, method: onRequest }
+            - { name: kernel.event_listener,
+                event: kernel.request,
+                method: onRequest }
 </code></pre>
                 </section>
 
@@ -558,11 +672,34 @@ class CacheableListener
         }
 
         $response = new Response();
-        $response->setLastModified($this->someService->getLastModified(););
+        $response->setLastModified($this->redis->getLastModified(););
 
         if ($response->isNotModified($event->getRequest())) {
             $event->setResponse($response);
         }
+    }
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Tagging Controllers</h2>
+<pre><code class="hljs php">
+//Acme/DemoBundle/Controller/DefaultController.php
+class DefaultController {
+    public function indexAction(Request $request)
+    {
+        $user = $this->repo->someCostlyLookup();
+
+        $response = $this->render(
+            'AcmeDemoBundle:Default:index.html.twig',
+            ['name' => $user->getName()]
+        );
+
+        $response->setLastModified($user->getLastModified());
+        $this->redis->setLastModified($user->getLastModified());
+
+        return $response;
     }
 }
 </code></pre>
@@ -618,8 +755,6 @@ class CacheableListener
 
 				transition: 'slide', // none/fade/slide/convex/concave/zoom
                 transitionSpeed: 'fast',
-
-                slideNumber: true,
 
 				// Optional reveal.js plugins
 				dependencies: [
