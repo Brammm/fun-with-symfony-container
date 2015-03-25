@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<title>Having Fun With The Symfony Container</title>
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/league.css" id="theme">
+
+		<!-- Code syntax highlighting -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+
+		<div class="reveal">
+
+			<div class="slides">
+				<section>
+					<h1>HFWTSC</h1>
+					<h3>Having Fun With The Symfony Container</h3>
+				</section>
+
+				<section>
+					<h2>Who Am I?</h2>
+                    <ul>
+                        <li>Bram Van der Sype</li>
+                        <li class="fragment">Brammm (Twitter, IRC, Github...)</li>
+                        <li class="fragment">Freelance Web Developer</li>
+                        <li class="fragment">Currently at&nbsp;&nbsp;<img src="sparkcentral.png" style="border: 0; vertical-align: middle; background: none; box-shadow: none; width: 300px" /></li>
+                    </ul>
+				</section>
+
+				<section>
+					<h2>What's Sparkcentral?</h2>
+                    <ul>
+                        <li class="fragment"><em>&ldquo;Customer Engagement Platform&rdquo;</em></li>
+                        <li class="fragment">Our core API is built on Symfony2</li>
+                        <li class="fragment">Moving away from full stack</li>
+                    </ul>
+				</section>
+
+				<section>
+                    <h2>Why use DI?</h2>
+				</section>
+
+                <section>
+                    <h1>SOLID</h1>
+                </section>
+
+                <section>
+                    <img data-src="agreed.gif" />
+                    <aside class="notes">
+                        "DUH! Is there anyone that hasn't heard of SOLID?
+                    </aside>
+                </section>
+
+                <section>
+                    <h2>Five Principles</h2>
+                    <ul>
+                        <li><strong>S</strong>ingle responsibility</li>
+                        <li class="fragment"><strong>O</strong>pen/Closed</li>
+                        <li class="fragment"><strong>L</strong>iskov Substitution</li>
+                        <li class="fragment"><strong>I</strong>nterface Segregation</li>
+                        <li class="fragment"><strong>D</strong>ependency Inversion</li>
+                    </ul>
+                    <aside class="notes">
+                        <ul>
+                            <li>Go over abbreviation</li>
+                            <li>You'll hear this a lot at talks/conferences</li>
+                            <li>When trying to write SOLID code, you end up splitting up your classes. You end up with dependencies. There's where DI comes in</li>
+                        </ul>
+                    </aside>
+                </section>
+
+                <section>
+                    <h2>Symfony2 and Dependency Injection</h2>
+                </section>
+
+                <section>
+                    <h3><code class="hljs">app/console generate:bundle</code></h3>
+<pre>
+src/Acme
+`-- DemoBundle
+    |-- AcmeDemoBundle.php
+    |-- Controller
+    |   `-- DefaultController.php
+    |-- DependencyInjection
+    |   |-- AcmeDemoExtension.php
+    |   `-- Configuration.php
+    |-- Resources
+    |   |-- config
+    |   |   |-- routing.yml
+    |   |   `-- services.yml
+    |   `-- views
+    |       `-- Default
+    |           `-- index.html.twig
+    `-- Tests
+        `-- Controller
+            `-- DefaultControllerTest.php
+</pre>
+                    <aside class="notes">
+                        <ul>
+                            <li>Symfony2 has a lot of generators. Don't use them. Except maybe this one...</li>
+                            <li>Explain about Symfony bundles, what's generated etc</li>
+                        </ul>
+                    </aside>
+
+                </section>
+
+                <section>
+                    <h2>Relevant to DI</h2>
+<pre>
+src/Acme
+`-- DemoBundle
+    |-- AcmeDemoBundle.php
+    |-- DependencyInjection
+    |   |-- AcmeDemoExtension.php
+<span class="fragment visible highlight-current-strike">    |   `-- Configuration.php</span>
+    |-- Resources
+        |-- config
+            `-- services.yml
+</pre>
+                    <aside class="notes">
+                        <ul>
+                            <li>In a lot of instances you don't need the Configuration.php file</li>
+                        </ul>
+                    </aside>
+                </section>
+
+                <section>
+                    <h1>Creating services</h1>
+                </section>
+
+                <section>
+<pre><code class="hljs php">
+// Acme/DemoBundle/Command/RegisterUserCommandHandler.php
+class RegisterUserCommandHandler implements Handler {
+    public function __construct(
+        UserRepository $userRepo,
+        EventDispatcherInterface $dispatcher,
+        $defaultPicture)
+    {
+        // ...
+    }
+
+    public function handle(RegisterUserCommand $command)
+    {
+        $user = $this->userRepo->newFromCommand($command);
+        $user->setPicture($this->defaultPicture);
+        $this->userRepo->persist($user);
+        $this->dispatcher->dispatch(
+            'user_registered',
+            new UserRegisteredEvent($user)
+        );
+    }
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>services.yml</h2>
+<pre><code class="hljs bash">
+# Acme/DemoBundle/Resources/config/services.yml
+services:
+    acme_demo.handler.register_user:
+        class: Acme\DemoBundle\Command\RegisterUserCommandHandler
+        arguments:
+            - "@acme_demo.repo.user" // One of our own services
+            - "@event_dispatcher"    // Symfony2 service
+            - "images/mrT.jpg"       // Literal string
+</code></pre>
+                    <aside class="notes">
+                        <ul>
+                            <li>De verschillende elementen overlopen</li>
+                            <li>Vermelden dat je ook xml of php kan gebruiken</li>
+                        </ul>
+                    </aside>
+                </section>
+
+                <section>
+                    <h2>AcmeDemoExtension.php</h2>
+<pre><code class="hljs php">
+// Acme/DemoBundle/DependencyInjection/AcmeDemoExtension.php
+class AcmeDemoExtension extends Extension
+{
+    public function load(array $configs, ContainerBuilder $container)
+    {
+        $configuration = new Configuration();
+        $config = $this->processConfiguration($configuration, $configs);
+
+        $loader = new Loader\YamlFileLoader(
+            $container,
+            new FileLocator(__DIR__.'/../Resources/config')
+        );
+        $loader->load('services.yml');
+    }
+}
+</code></pre>
+                    <aside class="notes">
+                        <ul>
+                            <li>Here's where all the bootstrapping happens for your bundle.</li>
+                            <li>$loader->load() is where a lot the magic happens (and the Kernel)</li>
+                            <li>If you're not gonna use configuration, get rid of the first two lines</li>
+                        </ul>
+                    </aside>
+                </section>
+
+                <section>
+                    <h1>Configuring services</h1>
+                </section>
+
+                <section>
+                    <h2>Parameters</h2>
+<pre><code class="hljs bash">
+# Acme/DemoBundle/Resources/config/services.yml
+parameters:
+    default_picture: "images/mrT.jpg"
+services:
+    acme_demo.handler.register_user:
+        class: Acme\DemoBundle\Handler\RegisterUserCommandHandler
+        arguments:
+            # ...
+            - "%default_picture%"
+</code></pre>
+                    <aside class="notes">
+                        <ul>
+                            <li>We can define stuff in parameters</li>
+                            <li>You can put a parameters array at the top of your file, you could also use variables from your app/config/parameters.yml file</li>
+                        </ul>
+                    </aside>
+                </section>
+
+                <section>
+                    <h2>Using configuration</h2>
+<pre><code class="hljs bash">
+#app/config/config.yml
+doctrine:
+    orm:
+        auto_mapping: true
+</code></pre>
+                    <aside class="notes">
+                        <ul>
+                            <li>By default, Symfony2 allows you to configure certain parts in the config.yml files</li>
+                            <li>You can extend this with your own bundles</li>
+                        </ul>
+                    </aside>
+                </section>
+
+                <section>
+                    <h2>Adding our own config</h2>
+<pre><code class="hljs bash">
+#app/config/config.yml
+acme_demo:
+    default_picture: "images/mrT.jpg"
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Using the Configuration component</h2>
+<pre><code class="hljs php">
+// Acme/DemoBundle/DependencyInjection/Configuration.php
+class Configuration implements ConfigurationInterface
+{
+    public function getConfigTreeBuilder()
+    {
+        $treeBuilder = new TreeBuilder();
+        $rootNode = $treeBuilder->root('acme_demo');
+        $rootNode
+           ->children()
+                ->scalarNode('default_picture')->end()
+            ->end();
+
+        return $treeBuilder;
+    }
+}
+</code></pre>
+                    <aside class="notes">
+                        <ul>
+                            <li>Won't go into detail about TreeBuilder/Configuration classes</li>
+                            <li>a LOT of possibilities</li>
+                        </ul>
+                    </aside>
+                </section>
+
+                <section>
+                    <h2>Reading the Configuration class</h2>
+<pre><code class="hljs php">
+// Acme/DemoBundle/DependencyInjection/AcmeDemoExtension.php
+public function load(array $configs, ContainerBuilder $container)
+{
+    $configuration = new Configuration();
+    $config = $this->processConfiguration($configuration, $configs);
+
+    $container->setParameter(
+        'default_picture',
+        $config['default_picture']
+    );
+
+    // $loader = ...
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <h1>Tagging Services</h1>
+                </section>
+
+                <section>
+<pre><code class="hljs bash">
+# Acme/DemoBundle/Resources/config/services.yml
+services:
+    acme_demo.listener.user_registered:
+        class: Acme\DemoBundle\EventListener\UserRegisteredEventListener
+        tags:
+            - { name: kernel.event_listener,
+                event: user_registered,
+                method: afterRegistered }
+</code></pre>
+
+                </section>
+
+                <section>
+                    <h2>The Command Bus</h2>
+<pre><code class="hljs php">
+// Acme/DemoBundle/Command/CommandBus.php
+class CommandBus {
+
+    private $handlers;
+
+    public function handle(Command $command)
+    {
+        $this->getHandler($command)->handle($command);
+    }
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Adding our own tags</h2>
+<pre><code class="hljs bash">
+# Acme/DemoBundle/Resources/config/services.yml
+acme_demo.handler.register_user:
+    class: Acme\DemoBundle\Command\RegisterUserCommandHandler
+    arguments: # ...
+    tags:
+        - { name: command_handler,
+            handles: "Acme\DemoBundle\Command\RegisterUserCommand" }
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>The Compiler Pass</h2>
+<pre><code class="hljs php" style="font-size: .8em; line-height: 1em">
+// Acme/DemoBundle/DependencyInjection/CompilerPass/CommandHandlersPass.php
+class CommandHandlerPass implements CompilerPassInterface
+{
+    public function process(ContainerBuilder $container)
+    {
+        $handlers   = $container->findTaggedServiceIds('command_handler');
+        $commandBus = $container->findDefinition('acme_demo.command_bus');
+
+        foreach ($handlers as $serviceId => $tags) {
+            foreach ($tags as $tagAttributes) {
+                $commandBus->addMethodCall(
+                    'addHandler',
+                    [
+                        $tagAttributes['handles'],
+                       new Reference($serviceId)
+                    ]
+                );
+            }
+        }
+    }
+}
+</code></pre>
+                </section>
+
+                <section>
+<pre><code class="hljs php">
+// Acme/DemoBundle/Command/CommandBus.php
+class CommandBus {
+    public function addHandler($commandClass, Handler $handler)
+    {
+        $this->handlers[$commandClass] = $handler;
+    }
+
+    private function getHandler(Command $command)
+    {
+        return $this->handlers[get_class($command)];
+    }
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <h1>Some tricks</h1>
+                </section>
+
+                <section>
+                    <h2>Aliasing</h2>
+<pre><code class="hljs">
+# Acme/SomeBundle/Resources/config/services.yml
+services:
+    em: doctrine.orm.default_entity_manager
+
+    acme_some.my_service
+        class: ...
+        arguments: ["@em"]
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Doctrine Repositories as Services</h2>
+<pre><code class="hljs bash">
+# Acme/DemoBundle/Resources/config/services.yml
+services:
+    acme_demo.repo.user:
+        class: Acme\DemoBundle\Repository\UserRepository
+        factory_service: em # see what I did here
+        factory_method: getRepository
+        arguments: ["Acme\DemoBundle\Entity\User"]
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Controllers as Services</h2>
+<pre><code class="hljs php">
+class DefaultController extends Controller
+{
+    public function indexAction($name)
+    {
+        $this->get('this_service')->doStuff();
+        $this->get('that_service')->doEvenMore();
+        return $this->render(
+            'AcmeDemoBundle:Default:index.html.twig',
+            ['name' => $name]
+        );
+    }
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Controllers as Services</h2>
+<pre><code class="hljs bash">
+#Acme/DemoBundle/Resources/config/services.yml
+services:
+    acme_demo.controller.default:
+        class: Acme\DemoBundle\Controller\DefaultController
+        arguments: ["@acme_demo.command_bus"]
+
+#Acme/DemoBundle/Resources/config/routing.yml
+acme_demo_default_index:
+    path:     /
+    defaults: { _controller: acme_demo.controller.default:indexAction}
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Splitting up services.yml</h2>
+<pre><code class="hljs php">
+// Acme/DemoBundle/DependencyInjection/AcmeDemoExtension.php
+public function load(array $configs, ContainerBuilder $container)
+{
+    // ...
+    $loader = new Loader\YamlFileLoader(
+        $container,
+        new FileLocator(__DIR__.'/../Resources/config')
+    );
+    $loader->load('services.yml');
+    $loader->load('controllers.yml');
+    $loader->load('repositories.yml');
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Tagging controllers</h2>
+<pre><code class="hljs bash">
+#Acme/DemoBundle/Resources/config/controllers.yml
+services:
+    acme_demo.controller.default:
+    class: Acme\DemoBundle\Controller\DefaultController
+    arguments: ["@acme_demo.command_bus"]
+    tags:
+        - { name: cacheable }
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Tagging controllers</h2>
+<pre><code class="hljs bash">
+#Acme/DemoBundle/Resources/config/services.yml
+services:
+    acme_demo.listener.cacheable:
+        class: Acme\DemoBundle\EventListener\CacheableListener
+        tags:
+            - { name: kernel.event_listener, event: kernel.request, method: onRequest }
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Tagging controllers</h2>
+<pre><code class="hljs php">
+// Acme/DemoBundle/DependencyInjection/CompilerPass/CacheablePass.php
+public function process(ContainerBuilder $container)
+{
+    $controllers   = $container->findTaggedServiceIds('cacheable');
+    $eventListener = $container->getDefinition(
+        'acme_demo.listener.cacheable'
+    );
+
+    foreach (array_keys($controllers) as $serviceId) {
+        $eventListener->addMethodCall('addController', [$serviceId]);
+    }
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Tagging controllers</h2>
+<pre><code class="hljs php" style="font-size: .8em; line-height: 1em">
+// Acme/DemoBundle/Listener/CacheableListener.php
+class CacheableListener
+{
+    private $controllers = [];
+    public function addController($controller)
+    {
+        $this->controllers[] = $controller;
+    }
+
+    public function onRequest(GetResponseEvent $event)
+    {
+        list($controller, $action) = explode(':', $event->getRequest()->attributes->get('_controller'));
+        if (! in_array($controller, $this->controllers)) {
+            return;
+        }
+
+        $response = new Response();
+        $response->setLastModified($this->someService->getLastModified(););
+
+        if ($response->isNotModified($event->getRequest())) {
+            $event->setResponse($response);
+        }
+    }
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <img data-src="mindblown.gif" />
+                </section>
+
+                <section>
+                    <h1>Last notes</h1>
+                </section>
+
+                <section>
+                    <h2>Alternatives/Honorary mentions</h2>
+                    <ul>
+                        <li>pimple/pimple</li>
+                        <li>illuminate/container</li>
+                        <li>mnapoli/php-di</li>
+                        <li>league/container</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Recommended Reading</h2>
+                    <ul>
+                        <li>A Year With Symfony by Matthias Noback</li>
+                        <li>Principles of Package Design by Matthias Noback</li>
+                        <li>symfony.com/doc/</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h1>Questions?</h1>
+                </section>
+
+			</div>
+
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+
+			// Full list of configuration options available at:
+			// https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				transition: 'slide', // none/fade/slide/convex/concave/zoom
+                transitionSpeed: 'fast',
+
+                slideNumber: true,
+
+				// Optional reveal.js plugins
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, condition: function() { return !!document.querySelector( 'pre code' ); }, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true },
+					{ src: 'plugin/notes/notes.js', async: true }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>
