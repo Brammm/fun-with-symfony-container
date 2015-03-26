@@ -98,7 +98,7 @@ class Controller {
                 </section>
 
                 <section>
-                    <img data-src="images/agreed.gif" />
+                    <img data-src="images/agreed.gif" style="width: 350px" />
                     <aside class="notes">
                         "DUH! Is there anyone that hasn't heard of SOLID?
                     </aside>
@@ -120,6 +120,10 @@ class Controller {
                             <li>When trying to write SOLID code, you end up splitting up your classes. You end up with dependencies. There's where DI comes in</li>
                         </ul>
                     </aside>
+                </section>
+
+                <section>
+                    <h1>Testability</h1>
                 </section>
 
                 <section>
@@ -424,6 +428,11 @@ class CommandBus {
     {
         $this->getHandler($command)->handle($command);
     }
+
+    private function getHandler(Command $command)
+    {
+        // return Handler
+    }
 }
 </code></pre>
                 </section>
@@ -672,6 +681,14 @@ public function load(array $configs, ContainerBuilder $container)
     $loader->load('repositories.yml');
 }
 </code></pre>
+                </section>
+
+                <section>
+                    <h1>Tagging Controller Services</h1>
+                </section>
+
+                <section>
+                    <img data-src="images/both.gif" />
                 </section>
 
                 <section>
