@@ -67,11 +67,11 @@
                 <section>
                     <h2>Going from &hellip;</h2>
 <pre><code class="hljs php">
-class Foo {
+class Controller {
     public function __construct()
     {
-        $barDependency = new Something();
-        $this->dependency = new Bar($barDependency, 'string');
+        $storage = new RedisStorage();
+        $this->session = new Session($storage, GLOBAL_PREFIX);
     }
 }
 </code></pre>
@@ -80,10 +80,10 @@ class Foo {
                 <section>
                     <h2>&hellip; to</h2>
 <pre><code class="hljs php">
-class Foo {
-    public function __construct(Bar $dependency)
+class Controller {
+    public function __construct(Session $session)
     {
-        $this->dependency = $dependency;
+        $this->session = $session;
     }
 }
 </code></pre>
@@ -124,6 +124,13 @@ class Foo {
 
                 <section>
                     <h1>symfony/dependency-injection</h1>
+                    <aside class="notes">
+                        <ul>
+                            <li>Not reinventing the wheel, use existing component</li>
+                            <li>symfony/di is used in full stack symfony, doesn't have to, can be stand alone</li>
+                            <li>code examples assume you're creating a symfony bundle</li>
+                        </ul>
+                    </aside>
                 </section>
 
                 <section>
@@ -194,7 +201,7 @@ class RegisterUserCommandHandler implements Handler {
         // ...
     }
 
-    public function handle(RegisterUserCommand $command)
+    public function handle(Command $command)
     {
         $user = $this->userRepo->newFromCommand($command);
         $user->setPicture($this->defaultPicture);
@@ -206,6 +213,9 @@ class RegisterUserCommandHandler implements Handler {
     }
 }
 </code></pre>
+                    <aside class="notes">
+                        zoomen op code, eerst handle() uitleggen, zoomen, dan dependencies toelichten
+                    </aside>
                 </section>
 
                 <section>
@@ -277,12 +287,17 @@ services:
             # ...
             - "%default_picture%"
 </code></pre>
-                    <aside class="notes">
-                        <ul>
-                            <li>We can define stuff in parameters</li>
-                            <li>You can put a parameters array at the top of your file, you could also use variables from your app/config/parameters.yml file</li>
-                        </ul>
-                    </aside>
+                </section>
+
+                <section>
+                    <h2>Parameters</h2>
+<pre><code class="hljs bash">
+# app/config/parameters.yml
+parameters:
+    database#...
+
+    default_picture: "images/mrT.jpg"
+</code></pre>
                 </section>
 
                 <section>
@@ -307,6 +322,27 @@ doctrine:
 #app/config/config.yml
 acme_demo:
     default_picture: "images/mrT.jpg"
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Using Config component</h2>
+<pre><code class="hljs php">
+// Acme/DemoBundle/DependencyInjection/Configuration.php
+class Configuration implements ConfigurationInterface
+{
+    public function getConfigTreeBuilder()
+    {
+        $treeBuilder = new TreeBuilder();
+        $rootNode = $treeBuilder->root('acme_demo');
+
+        // Here you should define the parameters that are allowed to
+        // configure your bundle. See the documentation linked above for
+        // more information on that topic.
+
+        return $treeBuilder;
+    }
+}
 </code></pre>
                 </section>
 
@@ -384,9 +420,6 @@ services:
 <pre><code class="hljs php">
 // Acme/DemoBundle/Command/CommandBus.php
 class CommandBus {
-
-    private $handlers;
-
     public function handle(Command $command)
     {
         $this->getHandler($command)->handle($command);
@@ -403,40 +436,13 @@ acme_demo.handler.register_user:
     class: Acme\DemoBundle\Command\RegisterUserCommandHandler
     arguments: # ...
     tags:
-        - { name: command_handler,
+        - { name: acme_demo.command_handler,
             handles: "Acme\DemoBundle\Command\RegisterUserCommand" }
 </code></pre>
                 </section>
 
                 <section>
-                    <h2>The Compiler Pass</h2>
-<pre><code class="hljs php" style="font-size: .8em; line-height: 1em">
-// Acme/DemoBundle/DependencyInjection/CompilerPass/CommandHandlersPass.php
-class CommandHandlerPass implements CompilerPassInterface
-{
-    public function process(ContainerBuilder $container)
-    {
-        $handlers   = $container->findTaggedServiceIds('command_handler');
-        $commandBus = $container->findDefinition('acme_demo.command_bus');
-
-        foreach ($handlers as $serviceId => $tags) {
-            foreach ($tags as $tagAttributes) {
-                $commandBus->addMethodCall(
-                    'addHandler',
-                    [
-                        $tagAttributes['handles'],
-                       new Reference($serviceId)
-                    ]
-                );
-            }
-        }
-    }
-}
-</code></pre>
-                </section>
-
-                <section>
-                    <h2>Finishing off the CommandBus</h2>
+                    <h2>The Command Bus</h2>
 <pre><code class="hljs php">
 // Acme/DemoBundle/Command/CommandBus.php
 class CommandBus {
@@ -454,14 +460,76 @@ class CommandBus {
                 </section>
 
                 <section>
+                    <h2>The Compiler Pass</h2>
+<pre><code class="hljs php" style="font-size: .8em; line-height: 1em">
+// Acme/DemoBundle/DependencyInjection/CompilerPass/CommandHandlersPass.php
+class CommandHandlerPass implements CompilerPassInterface
+{
+    public function process(ContainerBuilder $container)
+    {
+        $handlers   = $container->findTaggedServiceIds('acme_demo.command_handler');
+        $commandBus = $container->findDefinition('acme_demo.command_bus');
+
+        foreach ($handlers as $serviceId => $tags) {
+            foreach ($tags as $tagAttributes) {
+                $commandBus->addMethodCall(
+                    'addHandler',
+                    [
+                        $tagAttributes['handles'],
+                        new Reference($serviceId)
+                    ]
+                );
+            }
+        }
+    }
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Registering the Compiler Pass</h2>
+<pre><code class="hljs php">
+// Acme/DemoBundle/AcmeDemoBundle.php
+class AcmeDemoBundle extends Bundle
+{
+    public function build(ContainerBuilder $container)
+    {
+        parent::build($container);
+        $container->addCompilerPass(new CommandHandlerPass());
+    }
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Using it</h2>
+<pre><code class="hljs php">
+// Acme/DemoBundle/Controller/UserController.php
+class UserController extends Controller
+{
+    public function registerAction(Request $request)
+    {
+        // $command = ...
+        $this->get('acme_demo.command_bus')->handle($command);
+        //
+    }
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <img data-src="images/magic.gif" />
+                </section>
+
+                <section>
                     <h1>Some tricks</h1>
                 </section>
 
                 <section>
                     <h2>Default Symfony2 Controllers</h2>
 <pre><code class="hljs php">
-//Acme/DemoBundle/Controller/DefaultController.php
-class DefaultController extends Controller {
+//Acme/DemoBundle/Controller/UserController.php
+class UserController extends Controller {
     public function registerAction(Request $request)
     {
         $em   = $this->getDoctrine()->getManager();
@@ -611,26 +679,54 @@ public function load(array $configs, ContainerBuilder $container)
 <pre><code class="hljs php">
 //Acme/DemoBundle/Controller/DefaultController.php
 class DefaultController {
-    public function indexAction(Request $request)
+    public function indexAction()
     {
-        $response = new Response();
-        $response->setLastModified($this->redis->getLastModified());
-        if ($response->isNotModified($request) {
-            return $response;
-        }
-
         $user = $this->repo->someCostlyLookup();
 
-        $response = $this->render(
+        return $this->render(
             'AcmeDemoBundle:Default:index.html.twig',
             ['name' => $user->getName()]
         );
+    }
+}
+</code></pre>
+                </section>
 
-        $response->setLastModified($user->getLastModified());
-        $this->redis->setLastModified($user->getLastModified());
+                <section>
+                    <h2>Tagging Controllers</h2>
+<pre><code class="hljs php">
+//Acme/DemoBundle/Controller/DefaultController.php
+public function indexAction(Request $request)
+{
+    $user     = // $this->repo ...
+    $response = // $this->render ...
 
+    $response->setLastModified($user->getLastModified());
+    $this->redis->setLastModified(
+        $request->attributes->get('_route'),
+        $user->getLastModified()
+    );
+
+    return $response;
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>Tagging Controllers</h2>
+<pre><code class="hljs php">
+//Acme/DemoBundle/Controller/DefaultController.php
+public function indexAction(Request $request)
+{
+    $response = new Response();
+    $response->setLastModified($this->redis->getLastModified(
+        $request->attributes->get('_route'))
+    );
+    if ($response->isNotModified($request) {
         return $response;
     }
+
+    // ...
 }
 </code></pre>
                 </section>
@@ -642,9 +738,9 @@ class DefaultController {
 services:
     acme_demo.controller.default:
     class: Acme\DemoBundle\Controller\DefaultController
-    arguments: ["@acme_demo.command_bus"]
+    arguments: ["@acme_demo.repo.user"]
     tags:
-        - { name: cacheable }
+        - { name: acme_demo.cacheable }
 </code></pre>
                 </section>
 
@@ -654,12 +750,10 @@ services:
 #Acme/DemoBundle/Resources/config/services.yml
 services:
     acme_demo.listener.cacheable:
-        class: Acme\DemoBundle\EventListener\CacheableListener
+        class: Acme\DemoBundle\EventListener\CacheableSubscriber
         arguments: ["@redis"]
         tags:
-            - { name: kernel.event_listener,
-                event: kernel.request,
-                method: onRequest }
+            - { name: kernel.event_subscriber }
 </code></pre>
                 </section>
 
@@ -669,13 +763,15 @@ services:
 // Acme/DemoBundle/DependencyInjection/CompilerPass/CacheablePass.php
 public function process(ContainerBuilder $container)
 {
-    $controllers   = $container->findTaggedServiceIds('cacheable');
-    $eventListener = $container->getDefinition(
+    $controllers = $container->findTaggedServiceIds(
+        'acme_demo.cacheable'
+    );
+    $eventSubscriber = $container->getDefinition(
         'acme_demo.listener.cacheable'
     );
 
     foreach (array_keys($controllers) as $serviceId) {
-        $eventListener->addMethodCall('addController', [$serviceId]);
+        $eventSubscriber->addMethodCall('addController', [$serviceId]);
     }
 }
 </code></pre>
@@ -684,24 +780,45 @@ public function process(ContainerBuilder $container)
                 <section>
                     <h2>Tagging controllers</h2>
 <pre><code class="hljs php" style="font-size: .8em; line-height: 1em">
-// Acme/DemoBundle/Listener/CacheableListener.php
-class CacheableListener
+// Acme/DemoBundle/Listener/CacheableSubscriber.php
+class CacheableSubscriber implements EventSubscriberInterface
 {
     private $controllers = [];
+
+    public static function getSubscribedEvents()
+    {
+        return [
+            'kernel.request'  => 'onRequest',
+            'kernel.response' => 'onResponse',
+        ];
+    }
+
     public function addController($controller)
     {
         $this->controllers[] = $controller;
     }
 
+    public function onResponse(FilterResponseEvent $event)
+    {
+        $this->redis->setLastModified(
+            $event->getRequest()->attributes->get('_route'),
+            $event->getResponse()->getLastModified()
+        );
+    }
+
     public function onRequest(GetResponseEvent $event)
     {
-        list($controller, $action) = explode(':', $event->getRequest()->attributes->get('_controller'));
-        if (! in_array($controller, $this->controllers)) {
+        $controller = $event->getRequest()->attributes->get('_controller');
+        $route      = $event->getRequest()->attributes->get('_route');
+
+        list($serviceId, $action) = explode(':', $controller);
+
+        if (! in_array($serviceId, $this->controllers)) {
             return;
         }
 
         $response = new Response();
-        $response->setLastModified($this->redis->getLastModified(););
+        $response->setLastModified($this->redis->getLastModified($route));
 
         if ($response->isNotModified($event->getRequest())) {
             $event->setResponse($response);
@@ -724,10 +841,7 @@ class DefaultController {
             'AcmeDemoBundle:Default:index.html.twig',
             ['name' => $user->getName()]
         );
-
         $response->setLastModified($user->getLastModified());
-        $this->redis->setLastModified($user->getLastModified());
-
         return $response;
     }
 }
@@ -757,12 +871,19 @@ class DefaultController {
                     <ul>
                         <li>A Year With Symfony by Matthias Noback</li>
                         <li>Principles of Package Design by Matthias Noback</li>
-                        <li>symfony.com/doc/</li>
+                        <li class="fragment">symfony.com/doc/</li>
+                        <li class="fragment">#symfony on chat.freenode.net</li>
                     </ul>
                 </section>
 
                 <section>
                     <h1>Questions?</h1>
+                </section>
+
+                <section>
+                    <h1>Thanks!</h1>
+                    <h3>Please leave feedback on joind.in/14183</h3>
+                    <img data-src="images/joindin.png" style="width: 200px"/>
                 </section>
 
 			</div>
