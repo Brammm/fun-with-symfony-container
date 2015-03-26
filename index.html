@@ -47,7 +47,7 @@
                         <li>Bram Van der Sype</li>
                         <li class="fragment">Brammm (Twitter, IRC, Github...)</li>
                         <li class="fragment">Freelance Web Developer</li>
-                        <li class="fragment">Currently at&nbsp;&nbsp;<img src="sparkcentral.png" style="border: 0; vertical-align: middle; background: none; box-shadow: none; width: 300px" /></li>
+                        <li class="fragment">Currently at&nbsp;&nbsp;<img src="images/sparkcentral.png" style="border: 0; vertical-align: middle; background: none; box-shadow: none; width: 300px" /></li>
                     </ul>
 				</section>
 
@@ -61,6 +61,35 @@
 				</section>
 
 				<section>
+                    <h2>What is DI?</h2>
+				</section>
+
+                <section>
+                    <h2>Going from &hellip;</h2>
+<pre><code class="hljs php">
+class Foo {
+    public function __construct()
+    {
+        $barDependency = new Something();
+        $this->dependency = new Bar($barDependency, 'string');
+    }
+}
+</code></pre>
+                </section>
+
+                <section>
+                    <h2>&hellip; to</h2>
+<pre><code class="hljs php">
+class Foo {
+    public function __construct(Bar $dependency)
+    {
+        $this->dependency = $dependency;
+    }
+}
+</code></pre>
+                </section>
+
+				<section>
                     <h2>Why use DI?</h2>
 				</section>
 
@@ -69,7 +98,7 @@
                 </section>
 
                 <section>
-                    <img data-src="agreed.gif" />
+                    <img data-src="images/agreed.gif" />
                     <aside class="notes">
                         "DUH! Is there anyone that hasn't heard of SOLID?
                     </aside>
@@ -228,7 +257,7 @@ class AcmeDemoExtension extends Extension
                 </section>
 
                 <section>
-                    <img data-src="working.gif" />
+                    <img data-src="images/working.gif" />
                 </section>
 
                 <section>
@@ -328,7 +357,7 @@ public function load(array $configs, ContainerBuilder $container)
                 </section>
 
                 <section>
-                    <img data-src="mrT.gif" />
+                    <img data-src="images/mrT.gif" />
                 </section>
 
                 <section>
@@ -452,7 +481,7 @@ class DefaultController extends Controller {
                 </section>
 
                 <section>
-                    <img data-src="disgust.gif" />
+                    <img data-src="images/disgust.gif" />
                 </section>
 
                 <section>
@@ -706,7 +735,7 @@ class DefaultController {
                 </section>
 
                 <section>
-                    <img data-src="mindblown.gif" />
+                    <img data-src="images/mindblown.gif" />
                 </section>
 
                 <section>
